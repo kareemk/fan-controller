@@ -1,0 +1,36 @@
+# Home Assistant + MQTT broker for the fan controller, for an always-on Mac mini.
+#
+# The fan-tx bridge itself runs NATIVELY on the Mac mini (it needs the HackRF
+# over USB, which Docker Desktop on macOS can't pass through) and connects to
+# the broker on localhost:1883. Home Assistant runs in Docker here and reaches
+# the broker over the compose network as host `mosquitto`.
+#
+# Usage (from this directory):
+#   docker compose up -d
+#   # then run the bridge natively:  fan-tx --driver hackrf --mqtt
+#   # open Home Assistant at http://<mac-mini>:8123 and add the MQTT integration
+#   #   (broker: mosquitto, port: 1883)
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883" # published so the native fan-tx bridge can reach it
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./ha-config:/config
+
+volumes:
+  mosquitto-data:

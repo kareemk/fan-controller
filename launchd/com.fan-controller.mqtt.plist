@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd service for the fan-controller MQTT bridge (macOS, e.g. an always-on
+  Mac mini with the HackRF attached). Runs `fan-tx --mqtt`, which connects to
+  the MQTT broker and auto-registers the fans in Home Assistant.
+
+  Setup:
+    1. Build the release binary:  cargo build --release
+    2. Start the broker + Home Assistant:  (cd homeassistant && docker compose up -d)
+    3. Edit the ABSOLUTE __REPO__ paths below to match this machine.
+    4. Install as a per-user agent (enable auto-login so it starts after reboot):
+         cp launchd/com.fan-controller.mqtt.plist ~/Library/LaunchAgents/
+         launchctl load ~/Library/LaunchAgents/com.fan-controller.mqtt.plist
+    5. Logs:  tail -f __REPO__/mqtt.log
+
+  Stop / reload:
+    launchctl unload ~/Library/LaunchAgents/com.fan-controller.mqtt.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fan-controller.mqtt</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO__/target/release/fan-tx</string>
+        <string>--driver</string>
+        <string>hackrf</string>
+        <string>--mqtt</string>
+        <string>--mqtt-host</string>
+        <string>localhost</string>
+        <string>--config</string>
+        <string>__REPO__/config.yaml</string>
+        <string>--repeat</string>
+        <string>1</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Start at login and restart if it exits (e.g. broker not up yet). -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO__/mqtt.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO__/mqtt.log</string>
+</dict>
+</plist>

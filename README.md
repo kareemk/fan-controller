@@ -30,8 +30,8 @@ cargo run --release --bin fan-tx -- --driver hackrf
 # MCP server over stdio (for AI agents)
 cargo run --release --bin fan-tx -- --driver hackrf --mcp
 
-# HomeKit bridge (see the HomeKit section below)
-cargo run --release --bin fan-tx -- --driver hackrf --homekit
+# MQTT bridge for Home Assistant (see the Home Assistant section)
+cargo run --release --bin fan-tx -- --driver hackrf --mqtt
 ```
 
 **Options:**
@@ -43,8 +43,7 @@ cargo run --release --bin fan-tx -- --driver hackrf --homekit
 | `-c, --config` | config.yaml | Path to config file |
 | `--repeat` | 2 | Times to repeat each command |
 | `--mcp` | — | Start an MCP server over stdio |
-| `--homekit` | — | Start a HomeKit bridge (HAP) |
-| `--homekit-pin` | 11122333 | HomeKit pairing code (8 digits) |
+| `--mqtt` | — | Start an MQTT bridge for Home Assistant |
 
 **Available commands (Vendor A):** `off`, `speed1`–`speed6`, `fan_off`, `toggle_light`, `forward`, `reverse`, `breeze`, `1h`, `4h`, `8h`
 
@@ -65,41 +64,53 @@ cargo run --release --bin fan-rx -- --driver hackrf --gain 50
 cargo run --release --bin fan-rx -- --driver hackrf --calibrate
 ```
 
-## HomeKit
+## Home Assistant
 
-`fan-tx --homekit` runs a HomeKit bridge (via a [patched fork](https://github.com/kareemk/hap-rs) of [hap-rs](https://github.com/ewilken/hap-rs)) that exposes each configured fan as a HomeKit **Fan** accessory (on/off + 6-step speed), plus a **Lightbulb** for any fan marked `light: true` in the config. It holds the SDR open and routes every characteristic change through the transmitter, so it must run on the machine the SDR is attached to.
+`fan-tx --mqtt` bridges the fans into Home Assistant over MQTT using HA's
+[MQTT Discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery):
+each fan appears automatically as a **fan** entity (on/off + 6-step speed), and
+fans marked `light: true` also get a **light** entity. It holds the SDR open, so
+it runs on the machine the HackRF is attached to. Everyone in the house controls
+the fans from the free Home Assistant app — no HomeKit or hub required.
+
+### Quick start (always-on Mac mini)
+
+The [`homeassistant/`](homeassistant/) directory has a Docker stack for Home
+Assistant + a Mosquitto broker. The bridge runs natively (Docker on macOS can't
+pass through the USB HackRF) and talks to the broker on `localhost`.
 
 ```bash
-cargo run --release --bin fan-tx -- --driver hackrf --homekit
+# 1. Start Home Assistant + the MQTT broker
+cd homeassistant && docker compose up -d
+
+# 2. Run the bridge natively (connects to the broker, registers the fans)
+cargo run --release --bin fan-tx -- --driver hackrf --mqtt
+
+# 3. Open http://<mac-mini>:8123, create your account, then add the MQTT
+#    integration (Settings -> Devices & Services -> Add Integration -> MQTT)
+#    with broker host `mosquitto`, port `1883`.
 ```
 
-Then in the iOS **Home** app: **Add Accessory → More options… → Fan Controller**, accept the "Uncertified Accessory" prompt, and enter the pairing code (default `111-22-333`; change with `--homekit-pin`).
+The fans then appear under Settings → Devices & Services → MQTT. Add family
+members under Settings → People; for remote access put WireGuard or Tailscale on
+the Mac mini. To run the bridge as a boot service, use the launchd template in
+[`launchd/com.fan-controller.mqtt.plist`](launchd/com.fan-controller.mqtt.plist).
 
-**Accessory mapping**
+Broker connection flags: `--mqtt-host` (default `localhost`), `--mqtt-port`
+(default `1883`), and `--mqtt-user` / `--mqtt-pass` if the broker isn't anonymous.
 
-| HomeKit control | Command sent |
+### Entity mapping
+
+| HA control | Command sent |
 |---|---|
-| Fan off, or speed slider to 0 | `off` |
-| Fan on (power button) | `speed3` (the protocol has no bare "on") |
-| Fan speed slider 1–100% | `speed1`–`speed6` |
-| Lightbulb on/off | `toggle_light` (see caveats) |
+| Fan off, or speed 0 | `off` |
+| Fan on | `speed3` (the protocol has no bare "on") |
+| Fan speed 1–6 | `speed1`–`speed6` |
+| Light on/off | `toggle_light` |
 
-**Caveats**
-
-- The fans are stateless (one-way RF, no feedback), so HomeKit shows *optimistic* state — what it last commanded, not what the fan is actually doing.
-- The light command is a **toggle**, not absolute on/off. The bridge tracks the assumed light state and only transmits when HomeKit's target differs. Using the physical remote can desync that assumption — toggle the light once in the Home app to resync.
-
-**Run it as a service (always-on Mac mini)**
-
-A `launchd` template is in [`launchd/com.fan-controller.homekit.plist`](launchd/com.fan-controller.homekit.plist). Edit the `__REPO__` paths, then:
-
-```bash
-cp launchd/com.fan-controller.homekit.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.fan-controller.homekit.plist
-tail -f homekit.log
-```
-
-Pairing state is stored under `~/.fan-controller-homekit/`; delete that directory to factory-reset (unpair) the bridge.
+State is optimistic (the fans give no feedback), and the light is a toggle, so
+the bridge tracks assumed light state and only transmits when HA's target
+differs — using the physical remote can desync it until the next toggle.
 
 ## Configuration
 
@@ -108,7 +119,7 @@ Fans and rooms are defined in `config.yaml`:
 ```yaml
 fans:
   - { name: palapa1, vendor: vendor_a, device_id: 0x87552 }
-  - { name: galleria1, vendor: vendor_b, device_id: 0xED13F, light: true }  # exposes a HomeKit light
+  - { name: galleria1, vendor: vendor_b, device_id: 0xED13F, light: true }  # has a physical light
 
 rooms:
   main: "*"

@@ -13,7 +13,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-mod homekit;
+mod mqtt;
 
 // Fan remote OOK protocol at 433.816 MHz
 // Code format: [device_id:20][button_hi:4][rolling:4][check:4]
@@ -243,29 +243,25 @@ struct Args {
     #[arg(long)]
     mcp: bool,
 
-    /// Start a HomeKit bridge (HAP) exposing each fan as a HomeKit accessory
+    /// Start an MQTT bridge for Home Assistant (auto-discovery)
     #[arg(long)]
-    homekit: bool,
+    mqtt: bool,
 
-    /// HomeKit pairing code (8 digits) used with --homekit
-    #[arg(long, default_value = "11122333")]
-    homekit_pin: String,
-}
+    /// MQTT broker host (with --mqtt)
+    #[arg(long, default_value = "localhost")]
+    mqtt_host: String,
 
-fn parse_pin(s: &str) -> Result<[u8; 8]> {
-    let digits: Option<Vec<u8>> = s
-        .chars()
-        .filter(|c| *c != '-' && !c.is_whitespace())
-        .map(|c| c.to_digit(10).map(|d| d as u8))
-        .collect();
-    let digits = digits.with_context(|| format!("HomeKit PIN must be digits: '{s}'"))?;
-    let len = digits.len();
-    let mut out = [0u8; 8];
-    if len != 8 {
-        bail!("HomeKit PIN must be 8 digits, got {len}");
-    }
-    out.copy_from_slice(&digits);
-    Ok(out)
+    /// MQTT broker port (with --mqtt)
+    #[arg(long, default_value_t = 1883)]
+    mqtt_port: u16,
+
+    /// MQTT username (with --mqtt)
+    #[arg(long)]
+    mqtt_user: Option<String>,
+
+    /// MQTT password (with --mqtt)
+    #[arg(long)]
+    mqtt_pass: Option<String>,
 }
 
 fn parse_command(s: &str) -> Result<(&str, &str)> {
@@ -588,13 +584,18 @@ async fn main() -> Result<()> {
             .await
             .context("Failed to start MCP server")?;
         service.waiting().await?;
-    } else if args.homekit {
-        env_logger::Builder::from_env(
-            env_logger::Env::default().default_filter_or("info,hap=info"),
+    } else if args.mqtt {
+        mqtt::run(
+            config,
+            stream,
+            state,
+            args.repeat,
+            &args.mqtt_host,
+            args.mqtt_port,
+            args.mqtt_user.clone(),
+            args.mqtt_pass.clone(),
         )
-        .init();
-        let pin = parse_pin(&args.homekit_pin)?;
-        homekit::run(config, stream, state, args.repeat, pin, "Fan Controller").await?;
+        .await?;
     } else if let (Some(target), Some(button)) = (&args.target, &args.button) {
         let cmd = format!("{target} {button}");
         execute(&config, &mut stream, &mut state, &cmd, args.repeat)?;
