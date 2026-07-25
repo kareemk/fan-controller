@@ -106,6 +106,7 @@ Broker connection flags: `--mqtt-host` (default `localhost`), `--mqtt-port`
 | Fan off, or speed 0 | `off` |
 | Fan on | `speed3` (the protocol has no bare "on") |
 | Fan speed 1–6 | `speed1`–`speed6` |
+| Fan direction | `forward`/`reverse` (Vendor A) or `toggle_direction` (Vendor B) |
 | Light on/off | `toggle_light` |
 
 State is optimistic (the fans give no feedback), and the light is a toggle, so

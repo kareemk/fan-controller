@@ -32,6 +32,9 @@ struct FanState {
     on: bool,
     speed: u8,
     light: bool,
+    /// Assumed direction; true = forward. Tracked for state and for the
+    /// Vendor B toggle (which has no absolute set).
+    forward: bool,
 }
 
 impl Default for FanState {
@@ -41,6 +44,7 @@ impl Default for FanState {
             on: false,
             speed: 3,
             light: false,
+            forward: true,
         }
     }
 }
@@ -102,6 +106,18 @@ async fn publish_light_state(client: &AsyncClient, shared: &Arc<Shared>, name: &
         .await;
 }
 
+async fn publish_direction_state(client: &AsyncClient, shared: &Arc<Shared>, name: &str) {
+    let forward = shared.fans.lock().unwrap().get(name).map(|s| s.forward).unwrap_or(true);
+    let _ = client
+        .publish(
+            format!("{BASE}/{name}/direction/state"),
+            QoS::AtLeastOnce,
+            true,
+            if forward { "forward" } else { "reverse" },
+        )
+        .await;
+}
+
 /// (re)publish discovery configs, subscribe to command topics, and announce
 /// availability. Runs on every ConnAck so it survives reconnects.
 async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
@@ -124,6 +140,8 @@ async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
             "percentage_state_topic": format!("{base}/speed/state"),
             "speed_range_min": 1,
             "speed_range_max": MAX_SPEED,
+            "direction_command_topic": format!("{base}/direction/set"),
+            "direction_state_topic": format!("{base}/direction/state"),
             "availability_topic": format!("{BASE}/status"),
             "device": device,
         });
@@ -162,6 +180,7 @@ async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
     client.subscribe(format!("{BASE}/+/set"), QoS::AtLeastOnce).await?;
     client.subscribe(format!("{BASE}/+/speed/set"), QoS::AtLeastOnce).await?;
     client.subscribe(format!("{BASE}/+/light/set"), QoS::AtLeastOnce).await?;
+    client.subscribe(format!("{BASE}/+/direction/set"), QoS::AtLeastOnce).await?;
 
     client
         .publish(format!("{BASE}/status"), QoS::AtLeastOnce, true, "online")
@@ -170,6 +189,7 @@ async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
     // Seed each entity's state so HA shows something before the first command.
     for fan in &shared.config.fans {
         publish_fan_state(client, shared, &fan.name).await;
+        publish_direction_state(client, shared, &fan.name).await;
         if fan.has_light {
             publish_light_state(client, shared, &fan.name).await;
         }
@@ -236,6 +256,36 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
                 transmit(shared.clone(), name.to_string(), "toggle_light".to_string()).await;
             }
             publish_light_state(client, shared, name).await;
+        }
+        // Direction forward/reverse
+        (Some("direction"), Some("set")) => {
+            let want_forward = payload.eq_ignore_ascii_case("forward");
+            // Vendor A fans have absolute forward/reverse buttons; Vendor B only
+            // has toggle_direction, so track assumed direction and toggle on change.
+            let absolute = shared
+                .config
+                .fans
+                .iter()
+                .find(|f| f.name == name)
+                .map(|f| f.buttons.iter().any(|(n, _)| *n == "forward"))
+                .unwrap_or(false);
+            let cmd = {
+                let mut map = shared.fans.lock().unwrap();
+                let st = map.entry(name.to_string()).or_default();
+                if absolute {
+                    st.forward = want_forward;
+                    Some(if want_forward { "forward" } else { "reverse" }.to_string())
+                } else if st.forward != want_forward {
+                    st.forward = want_forward;
+                    Some("toggle_direction".to_string())
+                } else {
+                    None
+                }
+            };
+            if let Some(cmd) = cmd {
+                transmit(shared.clone(), name.to_string(), cmd).await;
+            }
+            publish_direction_state(client, shared, name).await;
         }
         _ => {}
     }
