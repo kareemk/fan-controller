@@ -1,3 +1,6 @@
+# Add `light: true` to a fan that has a physical light to expose a HomeKit
+# Lightbulb for it. The `toggle_light` command works regardless; this only
+# controls the HomeKit accessory. Defaults to false (no light).
 fans:
   - { name: palapa1,    vendor: vendor_a, device_id: 0x87552 }
   - { name: palapa2,    vendor: vendor_a, device_id: 0x861A6 }

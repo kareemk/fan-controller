@@ -67,7 +67,7 @@ cargo run --release --bin fan-rx -- --driver hackrf --calibrate
 
 ## HomeKit
 
-`fan-tx --homekit` runs a HomeKit bridge (via a [patched fork](https://github.com/kareemk/hap-rs) of [hap-rs](https://github.com/ewilken/hap-rs)) that exposes each configured fan as a HomeKit **Fan** accessory (on/off + 6-step speed) and a **Lightbulb**. It holds the SDR open and routes every characteristic change through the transmitter, so it must run on the machine the SDR is attached to.
+`fan-tx --homekit` runs a HomeKit bridge (via a [patched fork](https://github.com/kareemk/hap-rs) of [hap-rs](https://github.com/ewilken/hap-rs)) that exposes each configured fan as a HomeKit **Fan** accessory (on/off + 6-step speed), plus a **Lightbulb** for any fan marked `light: true` in the config. It holds the SDR open and routes every characteristic change through the transmitter, so it must run on the machine the SDR is attached to.
 
 ```bash
 cargo run --release --bin fan-tx -- --driver hackrf --homekit
@@ -108,7 +108,7 @@ Fans and rooms are defined in `config.yaml`:
 ```yaml
 fans:
   - { name: palapa1, vendor: vendor_a, device_id: 0x87552 }
-  - { name: galleria1, vendor: vendor_b, device_id: 0xED13F }
+  - { name: galleria1, vendor: vendor_b, device_id: 0xED13F, light: true }  # exposes a HomeKit light
 
 rooms:
   main: "*"

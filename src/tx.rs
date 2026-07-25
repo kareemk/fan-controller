@@ -84,6 +84,11 @@ struct ConfigFan {
     name: String,
     vendor: String,
     device_id: u32,
+    /// Whether this fan has a physical light. Controls whether a HomeKit
+    /// Lightbulb accessory is exposed; the `toggle_light` command still works
+    /// regardless. Defaults to false.
+    #[serde(default)]
+    light: bool,
 }
 
 fn xor_nibbles(mut v: u32) -> u8 {
@@ -111,6 +116,7 @@ struct Fan {
     frequency: f64,
     buttons: &'static [(&'static str, u8)],
     rolling_in_check: bool,
+    has_light: bool,
 }
 
 struct LoadedConfig {
@@ -137,6 +143,7 @@ fn load_config(path: &str) -> Result<LoadedConfig> {
             frequency,
             buttons,
             rolling_in_check,
+            has_light: cf.light,
         });
     }
     Ok(LoadedConfig {

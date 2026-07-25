@@ -135,14 +135,19 @@ pub async fn run(
         .await
         .map_err(|e| anyhow::anyhow!("add bridge: {e}"))?;
 
-    let mut aid: u64 = 2;
-    for fan in &shared.config.fans {
+    for (i, fan) in shared.config.fans.iter().enumerate() {
         let fan_name = fan.name.clone();
         let serial = format!("{:05X}", fan.device_id);
 
+        // Deterministic ids reserve two slots per fan (fan, then its light), so
+        // toggling a fan's `light` never renumbers the other accessories and
+        // HomeKit keeps their identity, rooms, and names. Bridge is id 1.
+        let fan_aid = 2 + (i as u64) * 2;
+        let light_aid = fan_aid + 1;
+
         // -- Fan accessory: power + 6-step speed --
         let mut fan_acc = FanAccessory::new(
-            aid,
+            fan_aid,
             AccessoryInformation {
                 name: fan_name.clone(),
                 manufacturer: "fan-controller".into(),
@@ -152,7 +157,6 @@ pub async fn run(
             },
         )
         .map_err(|e| anyhow::anyhow!("fan {fan_name}: {e}"))?;
-        aid += 1;
 
         {
             let sh = shared.clone();
@@ -195,21 +199,20 @@ pub async fn run(
             .await
             .map_err(|e| anyhow::anyhow!("add fan {fan_name}: {e}"))?;
 
-        // -- Lightbulb accessory: toggle-diff against assumed state --
-        let mut light_acc = LightbulbAccessory::new(
-            aid,
-            AccessoryInformation {
-                name: format!("{fan_name} light"),
-                manufacturer: "fan-controller".into(),
-                model: "OOK-433".into(),
-                serial_number: format!("{serial}-light"),
-                ..Default::default()
-            },
-        )
-        .map_err(|e| anyhow::anyhow!("light {fan_name}: {e}"))?;
-        aid += 1;
+        // -- Lightbulb accessory (only for fans with a physical light) --
+        if fan.has_light {
+            let mut light_acc = LightbulbAccessory::new(
+                light_aid,
+                AccessoryInformation {
+                    name: format!("{fan_name} light"),
+                    manufacturer: "fan-controller".into(),
+                    model: "OOK-433".into(),
+                    serial_number: format!("{serial}-light"),
+                    ..Default::default()
+                },
+            )
+            .map_err(|e| anyhow::anyhow!("light {fan_name}: {e}"))?;
 
-        {
             let sh = shared.clone();
             let target = fan_name.clone();
             light_acc
@@ -238,11 +241,11 @@ pub async fn run(
                     }
                     .boxed()
                 }));
+            server
+                .add_accessory(light_acc)
+                .await
+                .map_err(|e| anyhow::anyhow!("add light {fan_name}: {e}"))?;
         }
-        server
-            .add_accessory(light_acc)
-            .await
-            .map_err(|e| anyhow::anyhow!("add light {fan_name}: {e}"))?;
     }
 
     let pin_str: String = pin.iter().map(|d| d.to_string()).collect();
