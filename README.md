@@ -126,3 +126,36 @@ Note: Docker on macOS cannot pass through USB devices directly. Run natively on 
 ```bash
 docker run --device /dev/bus/usb -v ./config.yaml:/config.yaml fan-controller
 ```
+
+## Troubleshooting
+
+**Build fails: `The system library SoapySDR ... was not found`** — the native SoapySDR
+library isn't installed (or not on the `pkg-config` path). Install it: `brew install soapysdr`.
+
+**Runtime: `SoapySDR::Device::make() no match`** — SoapySDR is installed but has no driver
+module for your SDR, or no device is connected. Install the module (`brew install soapyhackrf`)
+and confirm both the module and hardware are visible:
+
+```bash
+SoapySDRUtil --info                 # "Available factories" should list your driver (e.g. hackrf)
+SoapySDRUtil --find="driver=hackrf" # should show the connected device
+```
+
+**Transmits without error but the fans don't respond** — the hardware is likely fine; it's a
+signal issue. Check, in order:
+
+1. A 433 MHz antenna is on the TX/RX port (range is very short without one).
+2. Gain is within the device's range. HackRF TX tops out at 61 dB (the tool clamps and logs
+   when a higher value is requested); BladeRF goes much higher.
+3. `SAMPLE_RATE` isn't underrunning the USB bus. HackRF sharing a bus with other devices can't
+   sustain high rates — TX underruns corrupt the OOK pulse timing so the fan can't decode. This
+   tool transmits at 2 Msps for that reason. Raise it only if your bus can keep up.
+4. `--repeat 5` to rule out marginal reception.
+
+**Verify the radio independently of this tool.** For HackRF, `hackrf_info` confirms USB/firmware,
+and `hackrf_transfer` confirms it actually radiates RF (bypassing SoapySDR and this code):
+
+```bash
+hackrf_info                                                         # firmware + board ID over USB
+hackrf_transfer -t /dev/zero -f 433900000 -s 2000000 -x 40 -a 1     # exercise the TX chain
+```
