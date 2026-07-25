@@ -23,8 +23,8 @@ struct Args {
     #[arg(short, long, default_value_t = 40.0)]
     gain: f64,
 
-    /// SoapySDR driver name
-    #[arg(short, long, default_value = "bladerf")]
+    /// SoapySDR driver name (e.g. hackrf, bladerf)
+    #[arg(short, long)]
     driver: String,
 
     /// Print amplitude stats for threshold calibration

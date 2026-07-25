@@ -19,7 +19,7 @@ use std::sync::Mutex;
 //   counter: 0-7, increments each press (mod 8)
 //   Vendor A: rolling = (lo << 3) | counter, check = rolling ^ hi ^ key
 //   Vendor B: rolling = counter, lo XORed into bit 12, check = hi ^ key
-const SAMPLE_RATE: f64 = 6_000_000.0;
+const SAMPLE_RATE: f64 = 2_000_000.0;
 const CENTER_FREQUENCY: f64 = 433_900_000.0;
 const FREQUENCY_VENDOR_A: f64 = 433_899_000.0;
 const FREQUENCY_VENDOR_B: f64 = 433_935_500.0;
@@ -218,8 +218,8 @@ struct Args {
     #[arg(short, long, default_value_t = 70.0)]
     gain: f64,
 
-    /// SoapySDR driver name
-    #[arg(long, default_value = "bladerf")]
+    /// SoapySDR driver name (e.g. hackrf, bladerf)
+    #[arg(long)]
     driver: String,
 
     /// Path to fans.yaml config file
@@ -318,7 +318,20 @@ fn open_sdr(args: &Args) -> Result<(Device, soapysdr::TxStream<c32>)> {
         .context("Failed to set TX sample rate")?;
     dev.set_bandwidth(Direction::Tx, ch, BANDWIDTH)
         .context("Failed to set TX bandwidth")?;
-    dev.set_gain(Direction::Tx, ch, args.gain)
+
+    // Clamp gain to the device's actual TX range (e.g. HackRF tops out at 61 dB,
+    // BladeRF much higher) so a driver-agnostic default doesn't silently misbehave.
+    let range = dev
+        .gain_range(Direction::Tx, ch)
+        .context("Failed to query TX gain range")?;
+    let gain = args.gain.clamp(range.minimum, range.maximum);
+    if gain != args.gain {
+        eprintln!(
+            "[INFO] Requested gain {:.0} dB out of range [{:.0}, {:.0}]; using {:.0} dB",
+            args.gain, range.minimum, range.maximum, gain
+        );
+    }
+    dev.set_gain(Direction::Tx, ch, gain)
         .context("Failed to set TX gain")?;
 
     let mut stream = dev
@@ -335,8 +348,9 @@ fn transmit(stream: &mut soapysdr::TxStream<c32>, samples: &[c32]) -> Result<()>
     let mut offset = 0;
     while offset < samples.len() {
         let end = (offset + chunk_size).min(samples.len());
+        let end_burst = end == samples.len();
         let written = stream
-            .write(&[&samples[offset..end]], None, false, 1_000_000)
+            .write(&[&samples[offset..end]], None, end_burst, 1_000_000)
             .context("TX write failed")?;
         offset += written;
     }

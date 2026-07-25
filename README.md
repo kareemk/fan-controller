@@ -33,21 +33,23 @@ curl -X POST 'http://localhost:8080/send?target=palapa&cmd=toggle_light'
 
 ### Shell
 
+`--driver` is required — set it to your SDR's SoapySDR driver (e.g. `hackrf`, `bladerf`).
+
 ```bash
 # One-shot command: turn all fans off
-cargo run --release --bin fan-tx -- '*' off
+cargo run --release --bin fan-tx -- --driver hackrf '*' off
 
 # Target a specific fan
-cargo run --release --bin fan-tx -- palapa1 speed3
+cargo run --release --bin fan-tx -- --driver hackrf palapa1 speed3
 
 # Target a room (glob pattern from config)
-cargo run --release --bin fan-tx -- 'palapa*' toggle_light
+cargo run --release --bin fan-tx -- --driver hackrf 'palapa*' toggle_light
 
 # Interactive mode (stdin)
-cargo run --release --bin fan-tx
+cargo run --release --bin fan-tx -- --driver hackrf
 
 # HTTP server mode
-cargo run --release --bin fan-tx -- --http-server 0.0.0.0:8080
+cargo run --release --bin fan-tx -- --driver hackrf --http-server 0.0.0.0:8080
 ```
 
 **Options:**
@@ -55,7 +57,7 @@ cargo run --release --bin fan-tx -- --http-server 0.0.0.0:8080
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-g, --gain` | 70.0 | TX gain in dB |
-| `--driver` | bladerf | SoapySDR driver name |
+| `--driver` | _(required)_ | SoapySDR driver name (e.g. `hackrf`, `bladerf`) |
 | `-c, --config` | config.yaml | Path to config file |
 | `--repeat` | 2 | Times to repeat each command |
 | `--http-server` | — | Start HTTP server on IP:PORT |
@@ -69,14 +71,14 @@ cargo run --release --bin fan-tx -- --http-server 0.0.0.0:8080
 Listen for and decode fan remote OOK codes. Useful for capturing device IDs from existing remotes.
 
 ```bash
-# Listen with default settings
-cargo run --release --bin fan-rx
+# Listen (--driver is required)
+cargo run --release --bin fan-rx -- --driver hackrf
 
-# Adjust gain and driver
-cargo run --release --bin fan-rx -- --gain 50 --driver hackrf
+# Adjust gain
+cargo run --release --bin fan-rx -- --driver hackrf --gain 50
 
 # Calibration mode (print amplitude stats)
-cargo run --release --bin fan-rx -- --calibrate
+cargo run --release --bin fan-rx -- --driver hackrf --calibrate
 ```
 
 ## Configuration
@@ -97,10 +99,20 @@ rooms:
 
 ### Native
 
-Requires [SoapySDR](https://github.com/pothosware/SoapySDR) and a device driver (e.g. SoapyBladeRF, SoapyHackRF).
+Requires [SoapySDR](https://github.com/pothosware/SoapySDR) plus the driver module for your SDR (e.g. SoapyHackRF, SoapyBladeRF). The `soapysdr` crate finds SoapySDR via `pkg-config` at build time, so the library must be installed before `cargo build`.
+
+macOS (Homebrew):
 
 ```bash
+brew install soapysdr soapyhackrf   # HackRF; BladeRF needs SoapyBladeRF built from source
 cargo build --release
+```
+
+Verify SoapySDR sees your device driver and hardware:
+
+```bash
+SoapySDRUtil --info                 # should list your module under "Available factories"
+SoapySDRUtil --find="driver=hackrf" # should find the connected device
 ```
 
 ### Docker
