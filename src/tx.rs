@@ -13,6 +13,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+mod homekit;
+
 // Fan remote OOK protocol at 433.816 MHz
 // Code format: [device_id:20][button_hi:4][rolling:4][check:4]
 //   button:  5 bits (hi:4 | lo:1)
@@ -233,6 +235,30 @@ struct Args {
     /// Start MCP server over stdio
     #[arg(long)]
     mcp: bool,
+
+    /// Start a HomeKit bridge (HAP) exposing each fan as a HomeKit accessory
+    #[arg(long)]
+    homekit: bool,
+
+    /// HomeKit pairing code (8 digits) used with --homekit
+    #[arg(long, default_value = "11122333")]
+    homekit_pin: String,
+}
+
+fn parse_pin(s: &str) -> Result<[u8; 8]> {
+    let digits: Option<Vec<u8>> = s
+        .chars()
+        .filter(|c| *c != '-' && !c.is_whitespace())
+        .map(|c| c.to_digit(10).map(|d| d as u8))
+        .collect();
+    let digits = digits.with_context(|| format!("HomeKit PIN must be digits: '{s}'"))?;
+    let len = digits.len();
+    let mut out = [0u8; 8];
+    if len != 8 {
+        bail!("HomeKit PIN must be 8 digits, got {len}");
+    }
+    out.copy_from_slice(&digits);
+    Ok(out)
 }
 
 fn parse_command(s: &str) -> Result<(&str, &str)> {
@@ -555,6 +581,13 @@ async fn main() -> Result<()> {
             .await
             .context("Failed to start MCP server")?;
         service.waiting().await?;
+    } else if args.homekit {
+        env_logger::Builder::from_env(
+            env_logger::Env::default().default_filter_or("info,hap=info"),
+        )
+        .init();
+        let pin = parse_pin(&args.homekit_pin)?;
+        homekit::run(config, stream, state, args.repeat, pin, "Fan Controller").await?;
     } else if let (Some(target), Some(button)) = (&args.target, &args.button) {
         let cmd = format!("{target} {button}");
         execute(&config, &mut stream, &mut state, &cmd, args.repeat)?;

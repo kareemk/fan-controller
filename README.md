@@ -10,27 +10,6 @@ Compatible with a FT0317A controllers.
 
 Transmit fan remote commands. Supports two vendor protocols (gap-width encoding and pulse-width encoding).
 
-### HTTP API
-
-When running with `--http-server`:
-
-- `GET /targets` — returns JSON with available fans, rooms, and commands
-- `POST /send?target=<target>&cmd=<command>` — send a command to a target
-
-```bash
-# List available fans, rooms, and commands
-curl http://localhost:8080/targets
-
-# Turn all fans off
-curl -X POST 'http://localhost:8080/send?target=*&cmd=off'
-
-# Set a specific fan to speed 3
-curl -X POST 'http://localhost:8080/send?target=palapa1&cmd=speed3'
-
-# Toggle light for a room
-curl -X POST 'http://localhost:8080/send?target=palapa&cmd=toggle_light'
-```
-
 ### Shell
 
 `--driver` is required — set it to your SDR's SoapySDR driver (e.g. `hackrf`, `bladerf`).
@@ -48,8 +27,11 @@ cargo run --release --bin fan-tx -- --driver hackrf 'palapa*' toggle_light
 # Interactive mode (stdin)
 cargo run --release --bin fan-tx -- --driver hackrf
 
-# HTTP server mode
-cargo run --release --bin fan-tx -- --driver hackrf --http-server 0.0.0.0:8080
+# MCP server over stdio (for AI agents)
+cargo run --release --bin fan-tx -- --driver hackrf --mcp
+
+# HomeKit bridge (see the HomeKit section below)
+cargo run --release --bin fan-tx -- --driver hackrf --homekit
 ```
 
 **Options:**
@@ -60,7 +42,9 @@ cargo run --release --bin fan-tx -- --driver hackrf --http-server 0.0.0.0:8080
 | `--driver` | _(required)_ | SoapySDR driver name (e.g. `hackrf`, `bladerf`) |
 | `-c, --config` | config.yaml | Path to config file |
 | `--repeat` | 2 | Times to repeat each command |
-| `--http-server` | — | Start HTTP server on IP:PORT |
+| `--mcp` | — | Start an MCP server over stdio |
+| `--homekit` | — | Start a HomeKit bridge (HAP) |
+| `--homekit-pin` | 11122333 | HomeKit pairing code (8 digits) |
 
 **Available commands (Vendor A):** `off`, `speed1`–`speed6`, `fan_off`, `toggle_light`, `forward`, `reverse`, `breeze`, `1h`, `4h`, `8h`
 
@@ -80,6 +64,42 @@ cargo run --release --bin fan-rx -- --driver hackrf --gain 50
 # Calibration mode (print amplitude stats)
 cargo run --release --bin fan-rx -- --driver hackrf --calibrate
 ```
+
+## HomeKit
+
+`fan-tx --homekit` runs a HomeKit bridge (via a [patched fork](https://github.com/kareemk/hap-rs) of [hap-rs](https://github.com/ewilken/hap-rs)) that exposes each configured fan as a HomeKit **Fan** accessory (on/off + 6-step speed) and a **Lightbulb**. It holds the SDR open and routes every characteristic change through the transmitter, so it must run on the machine the SDR is attached to.
+
+```bash
+cargo run --release --bin fan-tx -- --driver hackrf --homekit
+```
+
+Then in the iOS **Home** app: **Add Accessory → More options… → Fan Controller**, accept the "Uncertified Accessory" prompt, and enter the pairing code (default `111-22-333`; change with `--homekit-pin`).
+
+**Accessory mapping**
+
+| HomeKit control | Command sent |
+|---|---|
+| Fan off, or speed slider to 0 | `off` |
+| Fan on (power button) | `speed3` (the protocol has no bare "on") |
+| Fan speed slider 1–100% | `speed1`–`speed6` |
+| Lightbulb on/off | `toggle_light` (see caveats) |
+
+**Caveats**
+
+- The fans are stateless (one-way RF, no feedback), so HomeKit shows *optimistic* state — what it last commanded, not what the fan is actually doing.
+- The light command is a **toggle**, not absolute on/off. The bridge tracks the assumed light state and only transmits when HomeKit's target differs. Using the physical remote can desync that assumption — toggle the light once in the Home app to resync.
+
+**Run it as a service (always-on Mac mini)**
+
+A `launchd` template is in [`launchd/com.fan-controller.homekit.plist`](launchd/com.fan-controller.homekit.plist). Edit the `__REPO__` paths, then:
+
+```bash
+cp launchd/com.fan-controller.homekit.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.fan-controller.homekit.plist
+tail -f homekit.log
+```
+
+Pairing state is stored under `~/.fan-controller-homekit/`; delete that directory to factory-reset (unpair) the bridge.
 
 ## Configuration
 

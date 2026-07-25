@@ -14,6 +14,8 @@ path = "src/tx.rs"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+env_logger = "0.11.11"
+hap = { git = "https://github.com/kareemk/hap-rs", rev = "cef8fd6", version = "0.1.0-pre.15" }
 num = "0.4"
 rmcp = { version = "1", features = ["server", "macros", "transport-io"] }
 schemars = "1"
