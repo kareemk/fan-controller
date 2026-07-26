@@ -73,6 +73,13 @@ fans marked `light: true` also get a **light** entity. It holds the SDR open, so
 it runs on the machine the HackRF is attached to. Everyone in the house controls
 the fans from the free Home Assistant app — no HomeKit or hub required.
 
+Each fan also publishes numeric preset modes `1`–`6`. Add the **Fan preset
+modes** feature to a Home Assistant tile card to show the protocol's discrete
+speed levels without relying on the percentage slider. The included
+[`homeassistant/fan-dashboard.yaml`](homeassistant/fan-dashboard.yaml) provides
+a mobile-friendly dashboard with explicit **Off, 1, 2, 3, 4, 5, 6** buttons for
+the Palapa group, Galleria group, and Guest fan.
+
 ### Quick start (always-on Mac mini)
 
 The [`homeassistant/`](homeassistant/) directory has a Docker stack for Home
@@ -80,6 +87,12 @@ Assistant + a Mosquitto broker. The bridge runs natively (Docker on macOS can't
 pass through the USB HackRF) and talks to the broker on `localhost`.
 
 ```bash
+# Keep the Mac available as a server while allowing display sleep
+sudo pmset -a sleep 0 autorestart 1 womp 1
+
+# Start Colima at login using its supported foreground service
+brew services start colima
+
 # 1. Start Home Assistant + the MQTT broker
 cd homeassistant && docker compose up -d
 
@@ -95,6 +108,8 @@ The fans then appear under Settings → Devices & Services → MQTT. Add family
 members under Settings → People; for remote access put WireGuard or Tailscale on
 the Mac mini. To run the bridge as a boot service, use the launchd template in
 [`launchd/com.fan-controller.mqtt.plist`](launchd/com.fan-controller.mqtt.plist).
+The launchd bridge template sends two complete RF bursts per command, matching
+the CLI default.
 
 Broker connection flags: `--mqtt-host` (default `localhost`), `--mqtt-port`
 (default `1883`), and `--mqtt-user` / `--mqtt-pass` if the broker isn't anonymous.
@@ -105,7 +120,7 @@ Broker connection flags: `--mqtt-host` (default `localhost`), `--mqtt-port`
 |---|---|
 | Fan off, or speed 0 | `off` |
 | Fan on | `speed3` (the protocol has no bare "on") |
-| Fan speed 1–6 | `speed1`–`speed6` |
+| Fan speed slider or numeric preset 1–6 | `speed1`–`speed6` |
 | Fan direction | `forward`/`reverse` (Vendor A) or `toggle_direction` (Vendor B) |
 | Light on/off | `toggle_light` |
 

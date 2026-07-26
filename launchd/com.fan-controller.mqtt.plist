@@ -32,7 +32,7 @@
         <string>--config</string>
         <string>__REPO__/config.yaml</string>
         <string>--repeat</string>
-        <string>1</string>
+        <string>2</string>
     </array>
 
     <key>WorkingDirectory</key>

@@ -1,0 +1,257 @@
+title: Fan Controller
+views:
+  - title: Fans
+    path: fans
+    icon: mdi:fan
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: heading
+            heading: Palapa
+            icon: mdi:fan
+          - type: tile
+            entity: fan.palapa_fans
+            name: All Palapa Fans
+            features_position: bottom
+            features:
+              - type: fan-direction
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: button
+                name: "Off"
+                icon: mdi:fan-off
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.turn_off
+                  target:
+                    entity_id: fan.palapa_fans
+              - type: button
+                name: "1"
+                icon: mdi:numeric-1
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.palapa_fans
+                  data:
+                    preset_mode: "1"
+              - type: button
+                name: "2"
+                icon: mdi:numeric-2
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.palapa_fans
+                  data:
+                    preset_mode: "2"
+              - type: button
+                name: "3"
+                icon: mdi:numeric-3
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.palapa_fans
+                  data:
+                    preset_mode: "3"
+              - type: button
+                name: "4"
+                icon: mdi:numeric-4
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.palapa_fans
+                  data:
+                    preset_mode: "4"
+              - type: button
+                name: "5"
+                icon: mdi:numeric-5
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.palapa_fans
+                  data:
+                    preset_mode: "5"
+              - type: button
+                name: "6"
+                icon: mdi:numeric-6
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.palapa_fans
+                  data:
+                    preset_mode: "6"
+
+      - type: vertical-stack
+        cards:
+          - type: heading
+            heading: Galleria
+            icon: mdi:fan
+          - type: tile
+            entity: fan.galleria_fans
+            name: All Galleria Fans
+            features_position: bottom
+            features:
+              - type: fan-direction
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: button
+                name: "Off"
+                icon: mdi:fan-off
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.turn_off
+                  target:
+                    entity_id: fan.galleria_fans
+              - type: button
+                name: "1"
+                icon: mdi:numeric-1
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.galleria_fans
+                  data:
+                    preset_mode: "1"
+              - type: button
+                name: "2"
+                icon: mdi:numeric-2
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.galleria_fans
+                  data:
+                    preset_mode: "2"
+              - type: button
+                name: "3"
+                icon: mdi:numeric-3
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.galleria_fans
+                  data:
+                    preset_mode: "3"
+              - type: button
+                name: "4"
+                icon: mdi:numeric-4
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.galleria_fans
+                  data:
+                    preset_mode: "4"
+              - type: button
+                name: "5"
+                icon: mdi:numeric-5
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.galleria_fans
+                  data:
+                    preset_mode: "5"
+              - type: button
+                name: "6"
+                icon: mdi:numeric-6
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.galleria_fans
+                  data:
+                    preset_mode: "6"
+
+      - type: vertical-stack
+        cards:
+          - type: heading
+            heading: Guest Bedroom
+            icon: mdi:fan
+          - type: tile
+            entity: fan.guest
+            name: Guest Fan
+            features_position: bottom
+            features:
+              - type: fan-direction
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: button
+                name: "Off"
+                icon: mdi:fan-off
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.turn_off
+                  target:
+                    entity_id: fan.guest
+              - type: button
+                name: "1"
+                icon: mdi:numeric-1
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.guest
+                  data:
+                    preset_mode: "1"
+              - type: button
+                name: "2"
+                icon: mdi:numeric-2
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.guest
+                  data:
+                    preset_mode: "2"
+              - type: button
+                name: "3"
+                icon: mdi:numeric-3
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.guest
+                  data:
+                    preset_mode: "3"
+              - type: button
+                name: "4"
+                icon: mdi:numeric-4
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.guest
+                  data:
+                    preset_mode: "4"
+              - type: button
+                name: "5"
+                icon: mdi:numeric-5
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.guest
+                  data:
+                    preset_mode: "5"
+              - type: button
+                name: "6"
+                icon: mdi:numeric-6
+                tap_action:
+                  action: perform-action
+                  perform_action: fan.set_preset_mode
+                  target:
+                    entity_id: fan.guest
+                  data:
+                    preset_mode: "6"

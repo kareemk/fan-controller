@@ -27,6 +27,9 @@ const DISCOVERY: &str = "homeassistant";
 const BASE: &str = "fanctrl";
 /// Fan speed levels this protocol supports (speed1..speed6).
 const MAX_SPEED: u8 = 6;
+/// Numeric preset labels let Home Assistant render the discrete protocol
+/// speeds as buttons instead of only exposing its percentage slider.
+const SPEED_PRESETS: [&str; MAX_SPEED as usize] = ["1", "2", "3", "4", "5", "6"];
 
 struct FanState {
     on: bool,
@@ -87,15 +90,39 @@ async fn publish_fan_state(client: &AsyncClient, shared: &Arc<Shared>, name: &st
     };
     let base = format!("{BASE}/{name}");
     let _ = client
-        .publish(format!("{base}/state"), QoS::AtLeastOnce, true, if on { "ON" } else { "OFF" })
+        .publish(
+            format!("{base}/state"),
+            QoS::AtLeastOnce,
+            true,
+            if on { "ON" } else { "OFF" },
+        )
         .await;
     let _ = client
-        .publish(format!("{base}/speed/state"), QoS::AtLeastOnce, true, speed.to_string())
+        .publish(
+            format!("{base}/speed/state"),
+            QoS::AtLeastOnce,
+            true,
+            speed.to_string(),
+        )
+        .await;
+    let _ = client
+        .publish(
+            format!("{base}/preset/state"),
+            QoS::AtLeastOnce,
+            true,
+            speed.to_string(),
+        )
         .await;
 }
 
 async fn publish_light_state(client: &AsyncClient, shared: &Arc<Shared>, name: &str) {
-    let on = shared.fans.lock().unwrap().get(name).map(|s| s.light).unwrap_or(false);
+    let on = shared
+        .fans
+        .lock()
+        .unwrap()
+        .get(name)
+        .map(|s| s.light)
+        .unwrap_or(false);
     let _ = client
         .publish(
             format!("{BASE}/{name}/light/state"),
@@ -107,7 +134,13 @@ async fn publish_light_state(client: &AsyncClient, shared: &Arc<Shared>, name: &
 }
 
 async fn publish_direction_state(client: &AsyncClient, shared: &Arc<Shared>, name: &str) {
-    let forward = shared.fans.lock().unwrap().get(name).map(|s| s.forward).unwrap_or(true);
+    let forward = shared
+        .fans
+        .lock()
+        .unwrap()
+        .get(name)
+        .map(|s| s.forward)
+        .unwrap_or(true);
     let _ = client
         .publish(
             format!("{BASE}/{name}/direction/state"),
@@ -140,6 +173,9 @@ async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
             "percentage_state_topic": format!("{base}/speed/state"),
             "speed_range_min": 1,
             "speed_range_max": MAX_SPEED,
+            "preset_mode_command_topic": format!("{base}/preset/set"),
+            "preset_mode_state_topic": format!("{base}/preset/state"),
+            "preset_modes": SPEED_PRESETS,
             "direction_command_topic": format!("{base}/direction/set"),
             "direction_state_topic": format!("{base}/direction/state"),
             "availability_topic": format!("{BASE}/status"),
@@ -177,10 +213,21 @@ async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
     }
 
     // HA publishes commands to these; `+` is one fan name.
-    client.subscribe(format!("{BASE}/+/set"), QoS::AtLeastOnce).await?;
-    client.subscribe(format!("{BASE}/+/speed/set"), QoS::AtLeastOnce).await?;
-    client.subscribe(format!("{BASE}/+/light/set"), QoS::AtLeastOnce).await?;
-    client.subscribe(format!("{BASE}/+/direction/set"), QoS::AtLeastOnce).await?;
+    client
+        .subscribe(format!("{BASE}/+/set"), QoS::AtLeastOnce)
+        .await?;
+    client
+        .subscribe(format!("{BASE}/+/speed/set"), QoS::AtLeastOnce)
+        .await?;
+    client
+        .subscribe(format!("{BASE}/+/preset/set"), QoS::AtLeastOnce)
+        .await?;
+    client
+        .subscribe(format!("{BASE}/+/light/set"), QoS::AtLeastOnce)
+        .await?;
+    client
+        .subscribe(format!("{BASE}/+/direction/set"), QoS::AtLeastOnce)
+        .await?;
 
     client
         .publish(format!("{BASE}/status"), QoS::AtLeastOnce, true, "online")
@@ -195,6 +242,13 @@ async fn setup(client: &AsyncClient, shared: &Arc<Shared>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn parse_speed_level(payload: &str) -> Option<u8> {
+    let level = payload.parse::<f32>().ok()?;
+    level
+        .is_finite()
+        .then(|| level.round().clamp(1.0, MAX_SPEED as f32) as u8)
 }
 
 async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str, payload: &[u8]) {
@@ -228,8 +282,23 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
         }
         // Speed (HA sends an integer in the 1..MAX_SPEED range)
         (Some("speed"), Some("set")) => {
-            let Ok(level) = payload.parse::<f32>() else { return };
-            let level = level.round().clamp(1.0, MAX_SPEED as f32) as u8;
+            let Some(level) = parse_speed_level(payload) else {
+                return;
+            };
+            {
+                let mut map = shared.fans.lock().unwrap();
+                let st = map.entry(name.to_string()).or_default();
+                st.on = true;
+                st.speed = level;
+            }
+            transmit(shared.clone(), name.to_string(), format!("speed{level}")).await;
+            publish_fan_state(client, shared, name).await;
+        }
+        // Numeric preset buttons map directly onto the protocol's speed1..speed6.
+        (Some("preset"), Some("set")) => {
+            let Some(level) = parse_speed_level(payload) else {
+                return;
+            };
             {
                 let mut map = shared.fans.lock().unwrap();
                 let st = map.entry(name.to_string()).or_default();
@@ -344,5 +413,21 @@ pub async fn run(
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_speed_level;
+
+    #[test]
+    fn parses_and_clamps_speed_levels() {
+        assert_eq!(parse_speed_level("1"), Some(1));
+        assert_eq!(parse_speed_level("3.4"), Some(3));
+        assert_eq!(parse_speed_level("6"), Some(6));
+        assert_eq!(parse_speed_level("0"), Some(1));
+        assert_eq!(parse_speed_level("7"), Some(6));
+        assert_eq!(parse_speed_level("nope"), None);
+        assert_eq!(parse_speed_level("NaN"), None);
     }
 }
