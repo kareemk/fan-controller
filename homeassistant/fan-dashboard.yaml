@@ -33,8 +33,11 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.palapa_fans
+                  target: &palapa_fans
+                    entity_id:
+                      - fan.palapa1
+                      - fan.palapa2
+                      - fan.palapa3
                   data:
                     preset_mode: "1"
               - type: button
@@ -43,8 +46,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.palapa_fans
+                  target: *palapa_fans
                   data:
                     preset_mode: "2"
               - type: button
@@ -53,8 +55,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.palapa_fans
+                  target: *palapa_fans
                   data:
                     preset_mode: "3"
               - type: button
@@ -63,8 +64,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.palapa_fans
+                  target: *palapa_fans
                   data:
                     preset_mode: "4"
               - type: button
@@ -73,8 +73,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.palapa_fans
+                  target: *palapa_fans
                   data:
                     preset_mode: "5"
               - type: button
@@ -83,8 +82,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.palapa_fans
+                  target: *palapa_fans
                   data:
                     preset_mode: "6"
 
@@ -117,8 +115,11 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.galleria_fans
+                  target: &galleria_fans
+                    entity_id:
+                      - fan.galleria1
+                      - fan.galleria2
+                      - fan.galleria3
                   data:
                     preset_mode: "1"
               - type: button
@@ -127,8 +128,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.galleria_fans
+                  target: *galleria_fans
                   data:
                     preset_mode: "2"
               - type: button
@@ -137,8 +137,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.galleria_fans
+                  target: *galleria_fans
                   data:
                     preset_mode: "3"
               - type: button
@@ -147,8 +146,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.galleria_fans
+                  target: *galleria_fans
                   data:
                     preset_mode: "4"
               - type: button
@@ -157,8 +155,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.galleria_fans
+                  target: *galleria_fans
                   data:
                     preset_mode: "5"
               - type: button
@@ -167,8 +164,7 @@ views:
                 tap_action:
                   action: perform-action
                   perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.galleria_fans
+                  target: *galleria_fans
                   data:
                     preset_mode: "6"
 
