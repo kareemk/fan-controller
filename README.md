@@ -78,7 +78,9 @@ modes** feature to a Home Assistant tile card to show the protocol's discrete
 speed levels without relying on the percentage slider. The included
 [`homeassistant/fan-dashboard.yaml`](homeassistant/fan-dashboard.yaml) provides
 a mobile-friendly dashboard with explicit **Off, 1, 2, 3, 4, 5, 6** buttons for
-the Palapa group, Galleria group, and Guest fan.
+the Palapa group, Galleria group, and Guest fan. Group buttons publish one MQTT
+room command, so the bridge sends every room member in a single ordered RF
+transmission using the same timing as the CLI room command.
 
 ### Quick start (always-on Mac mini)
 

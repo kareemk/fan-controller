@@ -9,12 +9,6 @@ views:
           - type: heading
             heading: Palapa
             icon: mdi:fan
-          - type: tile
-            entity: fan.palapa_fans
-            name: All Palapa Fans
-            features_position: bottom
-            features:
-              - type: fan-direction
           - type: grid
             columns: 4
             square: false
@@ -24,79 +18,70 @@ views:
                 icon: mdi:fan-off
                 tap_action:
                   action: perform-action
-                  perform_action: fan.turn_off
-                  target:
-                    entity_id: fan.palapa_fans
+                  perform_action: mqtt.publish
+                  data:
+                    topic: fanctrl/palapa/set
+                    payload: "OFF"
               - type: button
                 name: "1"
                 icon: mdi:numeric-1
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: &palapa_fans
-                    entity_id:
-                      - fan.palapa1
-                      - fan.palapa2
-                      - fan.palapa3
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "1"
+                    topic: fanctrl/palapa/preset/set
+                    payload: "1"
               - type: button
                 name: "2"
                 icon: mdi:numeric-2
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *palapa_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "2"
+                    topic: fanctrl/palapa/preset/set
+                    payload: "2"
               - type: button
                 name: "3"
                 icon: mdi:numeric-3
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *palapa_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "3"
+                    topic: fanctrl/palapa/preset/set
+                    payload: "3"
               - type: button
                 name: "4"
                 icon: mdi:numeric-4
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *palapa_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "4"
+                    topic: fanctrl/palapa/preset/set
+                    payload: "4"
               - type: button
                 name: "5"
                 icon: mdi:numeric-5
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *palapa_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "5"
+                    topic: fanctrl/palapa/preset/set
+                    payload: "5"
               - type: button
                 name: "6"
                 icon: mdi:numeric-6
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *palapa_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "6"
+                    topic: fanctrl/palapa/preset/set
+                    payload: "6"
 
       - type: vertical-stack
         cards:
           - type: heading
             heading: Galleria
             icon: mdi:fan
-          - type: tile
-            entity: fan.galleria_fans
-            name: All Galleria Fans
-            features_position: bottom
-            features:
-              - type: fan-direction
           - type: grid
             columns: 4
             square: false
@@ -106,79 +91,70 @@ views:
                 icon: mdi:fan-off
                 tap_action:
                   action: perform-action
-                  perform_action: fan.turn_off
-                  target:
-                    entity_id: fan.galleria_fans
+                  perform_action: mqtt.publish
+                  data:
+                    topic: fanctrl/galleria/set
+                    payload: "OFF"
               - type: button
                 name: "1"
                 icon: mdi:numeric-1
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: &galleria_fans
-                    entity_id:
-                      - fan.galleria1
-                      - fan.galleria2
-                      - fan.galleria3
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "1"
+                    topic: fanctrl/galleria/preset/set
+                    payload: "1"
               - type: button
                 name: "2"
                 icon: mdi:numeric-2
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *galleria_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "2"
+                    topic: fanctrl/galleria/preset/set
+                    payload: "2"
               - type: button
                 name: "3"
                 icon: mdi:numeric-3
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *galleria_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "3"
+                    topic: fanctrl/galleria/preset/set
+                    payload: "3"
               - type: button
                 name: "4"
                 icon: mdi:numeric-4
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *galleria_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "4"
+                    topic: fanctrl/galleria/preset/set
+                    payload: "4"
               - type: button
                 name: "5"
                 icon: mdi:numeric-5
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *galleria_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "5"
+                    topic: fanctrl/galleria/preset/set
+                    payload: "5"
               - type: button
                 name: "6"
                 icon: mdi:numeric-6
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target: *galleria_fans
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "6"
+                    topic: fanctrl/galleria/preset/set
+                    payload: "6"
 
       - type: vertical-stack
         cards:
           - type: heading
             heading: Guest Bedroom
             icon: mdi:fan
-          - type: tile
-            entity: fan.guest
-            name: Guest Fan
-            features_position: bottom
-            features:
-              - type: fan-direction
           - type: grid
             columns: 4
             square: false
@@ -188,66 +164,61 @@ views:
                 icon: mdi:fan-off
                 tap_action:
                   action: perform-action
-                  perform_action: fan.turn_off
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
+                  data:
+                    topic: fanctrl/guest/set
+                    payload: "OFF"
               - type: button
                 name: "1"
                 icon: mdi:numeric-1
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "1"
+                    topic: fanctrl/guest/preset/set
+                    payload: "1"
               - type: button
                 name: "2"
                 icon: mdi:numeric-2
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "2"
+                    topic: fanctrl/guest/preset/set
+                    payload: "2"
               - type: button
                 name: "3"
                 icon: mdi:numeric-3
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "3"
+                    topic: fanctrl/guest/preset/set
+                    payload: "3"
               - type: button
                 name: "4"
                 icon: mdi:numeric-4
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "4"
+                    topic: fanctrl/guest/preset/set
+                    payload: "4"
               - type: button
                 name: "5"
                 icon: mdi:numeric-5
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "5"
+                    topic: fanctrl/guest/preset/set
+                    payload: "5"
               - type: button
                 name: "6"
                 icon: mdi:numeric-6
                 tap_action:
                   action: perform-action
-                  perform_action: fan.set_preset_mode
-                  target:
-                    entity_id: fan.guest
+                  perform_action: mqtt.publish
                   data:
-                    preset_mode: "6"
+                    topic: fanctrl/guest/preset/set
+                    payload: "6"

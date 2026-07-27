@@ -19,7 +19,7 @@ use num::complex::Complex32 as c32;
 use rumqttc::{AsyncClient, Event, LastWill, MqttOptions, Packet, QoS};
 use serde_json::json;
 
-use crate::{execute, LoadedConfig, State};
+use crate::{execute, resolve_target, LoadedConfig, State};
 
 /// HA's default MQTT Discovery prefix.
 const DISCOVERY: &str = "homeassistant";
@@ -68,8 +68,14 @@ impl Shared {
         execute(&self.config, &mut stream, &mut state, &input, self.repeat)
     }
 
-    fn has_fan(&self, name: &str) -> bool {
-        self.config.fans.iter().any(|f| f.name == name)
+    /// Resolve an MQTT target to the fan state entries it affects. A target
+    /// can be one physical fan or a configured CLI room such as `palapa`.
+    fn target_fan_names(&self, target: &str) -> Vec<String> {
+        resolve_target(&self.config, target)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|fan| fan.name.clone())
+            .collect()
     }
 }
 
@@ -257,7 +263,8 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
         return;
     }
     let name = parts[1];
-    if !shared.has_fan(name) {
+    let target_fans = shared.target_fan_names(name);
+    if target_fans.is_empty() {
         return;
     }
     let payload = String::from_utf8_lossy(payload);
@@ -269,16 +276,27 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
             let on = payload.eq_ignore_ascii_case("ON");
             let cmd = {
                 let mut map = shared.fans.lock().unwrap();
-                let st = map.entry(name.to_string()).or_default();
-                st.on = on;
+                let target_state = map.entry(name.to_string()).or_default();
+                target_state.on = on;
                 if on {
-                    format!("speed{}", st.speed)
+                    let speed = target_state.speed;
+                    for fan_name in &target_fans {
+                        let st = map.entry(fan_name.clone()).or_default();
+                        st.on = true;
+                        st.speed = speed;
+                    }
+                    format!("speed{speed}")
                 } else {
+                    for fan_name in &target_fans {
+                        map.entry(fan_name.clone()).or_default().on = false;
+                    }
                     "off".to_string()
                 }
             };
             transmit(shared.clone(), name.to_string(), cmd).await;
-            publish_fan_state(client, shared, name).await;
+            for fan_name in &target_fans {
+                publish_fan_state(client, shared, fan_name).await;
+            }
         }
         // Speed (HA sends an integer in the 1..MAX_SPEED range)
         (Some("speed"), Some("set")) => {
@@ -287,12 +305,19 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
             };
             {
                 let mut map = shared.fans.lock().unwrap();
-                let st = map.entry(name.to_string()).or_default();
-                st.on = true;
-                st.speed = level;
+                let target_state = map.entry(name.to_string()).or_default();
+                target_state.on = true;
+                target_state.speed = level;
+                for fan_name in &target_fans {
+                    let st = map.entry(fan_name.clone()).or_default();
+                    st.on = true;
+                    st.speed = level;
+                }
             }
             transmit(shared.clone(), name.to_string(), format!("speed{level}")).await;
-            publish_fan_state(client, shared, name).await;
+            for fan_name in &target_fans {
+                publish_fan_state(client, shared, fan_name).await;
+            }
         }
         // Numeric preset buttons map directly onto the protocol's speed1..speed6.
         (Some("preset"), Some("set")) => {
@@ -301,12 +326,19 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
             };
             {
                 let mut map = shared.fans.lock().unwrap();
-                let st = map.entry(name.to_string()).or_default();
-                st.on = true;
-                st.speed = level;
+                let target_state = map.entry(name.to_string()).or_default();
+                target_state.on = true;
+                target_state.speed = level;
+                for fan_name in &target_fans {
+                    let st = map.entry(fan_name.clone()).or_default();
+                    st.on = true;
+                    st.speed = level;
+                }
             }
             transmit(shared.clone(), name.to_string(), format!("speed{level}")).await;
-            publish_fan_state(client, shared, name).await;
+            for fan_name in &target_fans {
+                publish_fan_state(client, shared, fan_name).await;
+            }
         }
         // Light on/off (toggle-diff against assumed state)
         (Some("light"), Some("set")) => {
