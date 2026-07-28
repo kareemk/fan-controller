@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use num::complex::Complex32 as c32;
 use soapysdr::{Device, Direction};
+use std::f32::consts::TAU;
 use std::io::{self, Write};
 
 const SAMPLE_RATE: f64 = 6_000_000.0;
@@ -37,6 +38,8 @@ struct OokDecoder {
     // Accumulator for partial blocks
     block_acc: f32,
     block_count: usize,
+    block_phase_acc: c32,
+    previous_sample: Option<c32>,
 
     // Adaptive threshold
     noise_floor: f32,
@@ -49,6 +52,7 @@ struct OokDecoder {
     gap_blocks: usize,
     bits: Vec<u8>,
     last_code: Option<u32>,
+    carrier_phase_acc: c32,
 
     calibrate: bool,
     sample_count: u64,
@@ -59,6 +63,8 @@ impl OokDecoder {
         Self {
             block_acc: 0.0,
             block_count: 0,
+            block_phase_acc: c32::new(0.0, 0.0),
+            previous_sample: None,
             noise_floor: 0.0,
             signal_peak: 0.0,
             threshold: 0.0,
@@ -67,6 +73,7 @@ impl OokDecoder {
             gap_blocks: 0,
             bits: Vec::new(),
             last_code: None,
+            carrier_phase_acc: c32::new(0.0, 0.0),
             calibrate,
             sample_count: 0,
         }
@@ -75,19 +82,25 @@ impl OokDecoder {
     fn process(&mut self, samples: &[c32]) {
         for sample in samples {
             self.block_acc += sample.norm();
+            if let Some(previous) = self.previous_sample {
+                self.block_phase_acc += *sample * previous.conj();
+            }
+            self.previous_sample = Some(*sample);
             self.block_count += 1;
             self.sample_count += 1;
 
             if self.block_count == BLOCK_SIZE {
                 let block_amp = self.block_acc / BLOCK_SIZE as f32;
+                let block_phase = self.block_phase_acc;
                 self.block_acc = 0.0;
                 self.block_count = 0;
-                self.process_block(block_amp);
+                self.block_phase_acc = c32::new(0.0, 0.0);
+                self.process_block(block_amp, block_phase);
             }
         }
     }
 
-    fn process_block(&mut self, amp: f32) {
+    fn process_block(&mut self, amp: f32, block_phase: c32) {
         // Seed the detector from the first block of ambient samples. Starting
         // at zero makes ordinary SDR noise look like one continuous pulse, so
         // the decoder never gets a chance to learn the actual noise floor.
@@ -120,6 +133,7 @@ impl OokDecoder {
         }
 
         if signal {
+            self.carrier_phase_acc += block_phase;
             if !self.in_pulse {
                 // Rising edge — classify the gap
                 if self.pulse_blocks >= PULSE_MIN_BLOCKS && self.gap_blocks > 0 {
@@ -152,6 +166,7 @@ impl OokDecoder {
 
     fn emit_frame(&mut self) {
         self.pulse_blocks = 0;
+        let carrier_phase = std::mem::take(&mut self.carrier_phase_acc);
         let n_bits = self.bits.len();
         if n_bits != 32 {
             self.bits.clear();
@@ -171,7 +186,9 @@ impl OokDecoder {
         self.last_code = Some(code as u32);
 
         let device_id = code >> 12;
-        println!("0x{code:08X}  device_id=0x{device_id:05X}");
+        let carrier_offset = carrier_phase.arg() * SAMPLE_RATE as f32 / TAU;
+        let carrier_frequency = FREQUENCY as f32 + carrier_offset;
+        println!("0x{code:08X}  device_id=0x{device_id:05X}  carrier={carrier_frequency:.0}Hz");
         let _ = io::stdout().flush();
     }
 }
@@ -182,7 +199,7 @@ mod tests {
 
     fn feed_blocks(decoder: &mut OokDecoder, amplitude: f32, count: usize) {
         for _ in 0..count {
-            decoder.process_block(amplitude);
+            decoder.process_block(amplitude, c32::new(0.0, 0.0));
         }
     }
 
@@ -190,7 +207,7 @@ mod tests {
     fn seeds_noise_floor_before_detecting_pulses() {
         let mut decoder = OokDecoder::new(false);
 
-        decoder.process_block(0.01);
+        decoder.process_block(0.01, c32::new(0.0, 0.0));
 
         assert_eq!(decoder.noise_floor, 0.01);
         assert_eq!(decoder.threshold, 0.03);
