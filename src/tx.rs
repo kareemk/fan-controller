@@ -218,7 +218,12 @@ fn make_code(fan: &Fan, button: u8, counter: u8) -> u32 {
 
 #[derive(Default, Serialize, Deserialize)]
 struct State {
+    /// Legacy global counter retained for backward-compatible state migration.
+    #[serde(default)]
     counter: u8,
+    /// Each receiver advances its own rolling counter independently.
+    #[serde(default)]
+    counters: HashMap<String, u8>,
 }
 
 impl State {
@@ -238,9 +243,14 @@ impl State {
         let _ = fs::write(Self::path(), serde_json::to_string_pretty(self).unwrap());
     }
 
-    fn next_counter(&mut self) -> u8 {
-        self.counter = (self.counter + 1) & 0x7;
-        self.counter
+    fn next_counter(&mut self, fan_name: &str) -> u8 {
+        let legacy_counter = self.counter;
+        let counter = self
+            .counters
+            .entry(fan_name.to_string())
+            .or_insert(legacy_counter);
+        *counter = (*counter + 1) & 0x7;
+        *counter
     }
 }
 
@@ -265,7 +275,7 @@ struct Args {
     #[arg(short, long, default_value = "config.yaml")]
     config: String,
 
-    /// Number of times to repeat each command (with 1s interval)
+    /// Number of times to retransmit the same button press (with 1s interval)
     #[arg(long, default_value_t = 2)]
     repeat: usize,
 
@@ -432,7 +442,7 @@ fn build_samples(fans: &[&Fan], button_name: &str, state: &mut State) -> Result<
         }
         let button = find_button(fan, button_name)?;
         let counter = if fan.rolling_in_check {
-            state.next_counter()
+            state.next_counter(&fan.name)
         } else {
             0
         };
@@ -496,13 +506,16 @@ fn execute(
     input: &str,
     repeat: usize,
 ) -> Result<()> {
+    let (target, button) = parse_command(input)?;
+    let fans = resolve_target(config, target)?;
+    // A repeat represents the same physical button press heard more than
+    // once. Build the waveform once so every repeat carries the same rolling
+    // counter; advancing it for each repeat skips the receiver's next value.
+    let samples = build_samples(&fans, button, state)?;
     for i in 0..repeat {
         if i > 0 {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
-        let (target, button) = parse_command(input)?;
-        let fans = resolve_target(config, target)?;
-        let samples = build_samples(&fans, button, state)?;
         transmit(stream, &samples)?;
         state.save();
     }
@@ -714,5 +727,16 @@ mod tests {
         assert_eq!(fan.device_id, 0x87AD7);
         assert_eq!(fan.frequency, 433_904_500.0);
         assert_eq!(find_button(fan, "off").unwrap(), 0x16);
+    }
+
+    #[test]
+    fn rolling_counters_are_independent_per_fan() {
+        let mut state = State::default();
+
+        assert_eq!(state.next_counter("fan1"), 1);
+        assert_eq!(state.next_counter("fan1"), 2);
+        assert_eq!(state.next_counter("fan2"), 1);
+        assert_eq!(state.counters["fan1"], 2);
+        assert_eq!(state.counters["fan2"], 1);
     }
 }

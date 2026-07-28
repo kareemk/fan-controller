@@ -41,13 +41,17 @@ cargo run --release --bin fan-tx -- --driver hackrf --mqtt
 | `-g, --gain` | 70.0 | TX gain in dB |
 | `--driver` | _(required)_ | SoapySDR driver name (e.g. `hackrf`, `bladerf`) |
 | `-c, --config` | config.yaml | Path to config file |
-| `--repeat` | 2 | Times to repeat each command |
+| `--repeat` | 2 | Times to retransmit the same button press |
 | `--mcp` | — | Start an MCP server over stdio |
 | `--mqtt` | — | Start an MQTT bridge for Home Assistant |
 
 **Available commands (Vendor A):** `off`, `speed1`–`speed6`, `fan_off`, `toggle_light`, `forward`, `reverse`, `breeze`, `1h`, `4h`, `8h`
 
 **Available commands (Vendor B):** `off`, `speed1`–`speed6`, `fan_off`, `toggle_light`, `toggle_direction`, `breeze`, `home_shield`, `1h`, `4h`, `8h`
+
+For receivers with rolling counters, each fan's counter is persisted independently
+in `~/.fan-remote.json`. Retransmissions use the same rolling code; only a new
+logical button press advances the counter.
 
 ### fan-rx
 
