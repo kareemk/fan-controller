@@ -80,7 +80,9 @@ speed levels without relying on the percentage slider. The included
 a mobile-friendly dashboard with explicit **Off, 1, 2, 3, 4, 5, 6** buttons for
 the Palapa group, Galleria group, and Guest fan. Group buttons publish one MQTT
 room command, so the bridge sends every room member in a single ordered RF
-transmission using the same timing as the CLI room command.
+transmission using the same timing as the CLI room command. Room transmissions
+include a 20 ms silent guard interval between receiver codes so each fan can
+finish decoding its frame before the next fan's signal begins.
 
 ### Quick start (always-on Mac mini)
 

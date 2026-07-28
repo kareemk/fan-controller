@@ -28,6 +28,10 @@ const FREQUENCY_VENDOR_B: f64 = 433_935_500.0;
 const BANDWIDTH: f64 = 1_500_000.0;
 
 const LEAD_SILENCE: f32 = 5e-3;
+// A room command concatenates multiple receiver codes into one SDR burst.
+// Leave enough silence between receivers for either protocol to finalize the
+// previous frame before the next device's code begins.
+const INTER_FAN_GAP: f32 = 20e-3;
 const REPEATS: usize = 6;
 
 // Vendor A: gap-width encoding (fixed pulse, variable gap)
@@ -395,7 +399,11 @@ fn build_samples(fans: &[&Fan], button_name: &str, state: &mut State) -> Result<
         samples.push(c32::new(0.0, 0.0));
     }
 
-    for fan in fans.iter() {
+    let inter_fan_silence_n = (INTER_FAN_GAP * SAMPLE_RATE as f32) as usize;
+    for (index, fan) in fans.iter().enumerate() {
+        if index > 0 {
+            samples.extend(std::iter::repeat_n(c32::new(0.0, 0.0), inter_fan_silence_n));
+        }
         let button = find_button(fan, button_name)?;
         let counter = if fan.rolling_in_check {
             state.next_counter()
@@ -618,4 +626,43 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vendor_b_fan(name: &str, device_id: u32) -> Fan {
+        Fan {
+            name: name.to_string(),
+            device_id,
+            key: xor_nibbles(device_id),
+            frequency: FREQUENCY_VENDOR_B,
+            buttons: BUTTONS_VENDOR_B,
+            rolling_in_check: false,
+            has_light: false,
+        }
+    }
+
+    #[test]
+    fn room_samples_include_inter_fan_guard_interval() {
+        let fan1 = vendor_b_fan("fan1", 0x12345);
+        let fan2 = vendor_b_fan("fan2", 0x23456);
+
+        let mut single_state = State::default();
+        let fan1_samples = build_samples(&[&fan1], "off", &mut single_state).unwrap();
+        let fan2_samples = build_samples(&[&fan2], "off", &mut single_state).unwrap();
+
+        let mut room_state = State::default();
+        let room_samples = build_samples(&[&fan1, &fan2], "off", &mut room_state).unwrap();
+
+        let lead_silence_samples = (LEAD_SILENCE * SAMPLE_RATE as f32) as usize;
+        let inter_fan_samples = (INTER_FAN_GAP * SAMPLE_RATE as f32) as usize;
+        assert_eq!(
+            room_samples.len(),
+            fan1_samples.len() + fan2_samples.len() - 2 * lead_silence_samples + inter_fan_samples
+        );
+        assert!(INTER_FAN_GAP > VA_FRAME_GAP);
+        assert!(INTER_FAN_GAP > VB_FRAME_GAP);
+    }
 }
