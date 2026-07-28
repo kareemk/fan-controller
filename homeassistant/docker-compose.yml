@@ -31,6 +31,7 @@ services:
       - "8123:8123"
     volumes:
       - ./ha-config:/config
+      - ./fan-dashboard.yaml:/config/fan-dashboard.yaml:ro
       - ./packages/fan_controller.yaml:/config/packages/fan_controller.yaml:ro
 
 volumes:

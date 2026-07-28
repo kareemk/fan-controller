@@ -95,9 +95,9 @@ homeassistant:
   packages: !include_dir_named packages
 ```
 
-Docker Compose mounts the tracked package into Home Assistant automatically.
-After enabling packages, validate/recreate Home Assistant and import
-`homeassistant/fan-dashboard.yaml` as the dashboard's raw configuration.
+Docker Compose mounts the tracked package and dashboard YAML into Home Assistant
+automatically. After enabling packages and registering `fan-dashboard.yaml` as
+a YAML dashboard in `configuration.yaml`, validate/recreate Home Assistant.
 
 ### Quick start (always-on Mac mini)
 
