@@ -12,9 +12,9 @@ const BANDWIDTH: f64 = 6_000_000.0;
 const BLOCK_SIZE: usize = 300;
 
 // Timing thresholds in blocks (1 block = 50 µs)
-const PULSE_MIN_BLOCKS: usize = 3;    // 150 µs — reject noise
-const GAP_THRESHOLD: usize = 14;      // 700 µs — below = bit 0, above = bit 1
-const GAP_FRAME_BLOCKS: usize = 40;   // 2000 µs — frame separator
+const PULSE_MIN_BLOCKS: usize = 3; // 150 µs — reject noise
+const GAP_THRESHOLD: usize = 14; // 700 µs — below = bit 0, above = bit 1
+const GAP_FRAME_BLOCKS: usize = 40; // 2000 µs — frame separator
 
 #[derive(Parser)]
 #[command(about = "Listen for fan remote OOK codes via SoapySDR")]
@@ -87,6 +87,15 @@ impl OokDecoder {
     }
 
     fn process_block(&mut self, amp: f32) {
+        // Seed the detector from the first block of ambient samples. Starting
+        // at zero makes ordinary SDR noise look like one continuous pulse, so
+        // the decoder never gets a chance to learn the actual noise floor.
+        if self.noise_floor == 0.0 {
+            self.noise_floor = amp;
+            self.threshold = amp * 3.0;
+            return;
+        }
+
         // Adaptive threshold: track noise floor with slow decay
         if !self.in_pulse {
             self.noise_floor = self.noise_floor * 0.999 + amp * 0.001;
@@ -102,7 +111,7 @@ impl OokDecoder {
 
         let signal = amp > self.threshold;
 
-        if self.calibrate && self.sample_count % (BLOCK_SIZE as u64 * 1000) == 0 {
+        if self.calibrate && self.sample_count.is_multiple_of(BLOCK_SIZE as u64 * 1000) {
             eprintln!(
                 "amp={amp:.4} noise={:.4} peak={:.4} thresh={:.4}",
                 self.noise_floor, self.signal_peak, self.threshold
@@ -162,6 +171,48 @@ impl OokDecoder {
 
         let device_id = code >> 12;
         println!("0x{code:08X}  device_id=0x{device_id:05X}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn feed_blocks(decoder: &mut OokDecoder, amplitude: f32, count: usize) {
+        for _ in 0..count {
+            decoder.process_block(amplitude);
+        }
+    }
+
+    #[test]
+    fn seeds_noise_floor_before_detecting_pulses() {
+        let mut decoder = OokDecoder::new(false);
+
+        decoder.process_block(0.01);
+
+        assert_eq!(decoder.noise_floor, 0.01);
+        assert_eq!(decoder.threshold, 0.03);
+        assert!(!decoder.in_pulse);
+    }
+
+    #[test]
+    fn decodes_vendor_a_frame_after_noise_bootstrap() {
+        let mut decoder = OokDecoder::new(false);
+        let code = 0x87AD_7105_u32;
+
+        feed_blocks(&mut decoder, 0.01, 100);
+        for bit_idx in (0..32).rev() {
+            feed_blocks(&mut decoder, 1.0, 6);
+            let gap_blocks = if (code >> bit_idx) & 1 == 1 { 30 } else { 10 };
+            feed_blocks(&mut decoder, 0.01, gap_blocks);
+        }
+
+        // Vendor A ends each frame with one extra pulse followed by its frame
+        // gap. The rising edge records the 32nd bit; the gap emits the frame.
+        feed_blocks(&mut decoder, 1.0, 6);
+        feed_blocks(&mut decoder, 0.01, GAP_FRAME_BLOCKS);
+
+        assert_eq!(decoder.last_code, Some(code));
     }
 }
 
