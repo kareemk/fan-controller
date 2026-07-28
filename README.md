@@ -116,6 +116,10 @@ the CLI default.
 Broker connection flags: `--mqtt-host` (default `localhost`), `--mqtt-port`
 (default `1883`), and `--mqtt-user` / `--mqtt-pass` if the broker isn't anonymous.
 
+If the HackRF is unplugged while the MQTT bridge is running, its active USB
+stream becomes invalid. The bridge exits on the next failed transmission so
+launchd can restart it and reopen the HackRF after it is reconnected.
+
 ### Entity mapping
 
 | HA control | Command sent |

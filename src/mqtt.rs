@@ -81,12 +81,10 @@ impl Shared {
 
 /// Run `execute` off the async runtime; it blocks (SDR I/O plus a 1s sleep
 /// between repeats).
-async fn transmit(shared: Arc<Shared>, target: String, cmd: String) {
-    match tokio::task::spawn_blocking(move || shared.send(&target, &cmd)).await {
-        Ok(Ok(())) => {}
-        Ok(Err(e)) => eprintln!("[mqtt] transmit failed: {e:#}"),
-        Err(e) => eprintln!("[mqtt] transmit task panicked: {e}"),
-    }
+async fn transmit(shared: Arc<Shared>, target: String, cmd: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || shared.send(&target, &cmd))
+        .await
+        .context("transmit task panicked")?
 }
 
 async fn publish_fan_state(client: &AsyncClient, shared: &Arc<Shared>, name: &str) {
@@ -257,15 +255,20 @@ fn parse_speed_level(payload: &str) -> Option<u8> {
         .then(|| level.round().clamp(1.0, MAX_SPEED as f32) as u8)
 }
 
-async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str, payload: &[u8]) {
+async fn handle_publish(
+    client: &AsyncClient,
+    shared: &Arc<Shared>,
+    topic: &str,
+    payload: &[u8],
+) -> Result<()> {
     let parts: Vec<&str> = topic.split('/').collect();
     if parts.first() != Some(&BASE) || parts.len() < 3 {
-        return;
+        return Ok(());
     }
     let name = parts[1];
     let target_fans = shared.target_fan_names(name);
     if target_fans.is_empty() {
-        return;
+        return Ok(());
     }
     let payload = String::from_utf8_lossy(payload);
     let payload = payload.trim();
@@ -293,7 +296,7 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
                     "off".to_string()
                 }
             };
-            transmit(shared.clone(), name.to_string(), cmd).await;
+            transmit(shared.clone(), name.to_string(), cmd).await?;
             for fan_name in &target_fans {
                 publish_fan_state(client, shared, fan_name).await;
             }
@@ -301,7 +304,7 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
         // Speed (HA sends an integer in the 1..MAX_SPEED range)
         (Some("speed"), Some("set")) => {
             let Some(level) = parse_speed_level(payload) else {
-                return;
+                return Ok(());
             };
             {
                 let mut map = shared.fans.lock().unwrap();
@@ -314,7 +317,7 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
                     st.speed = level;
                 }
             }
-            transmit(shared.clone(), name.to_string(), format!("speed{level}")).await;
+            transmit(shared.clone(), name.to_string(), format!("speed{level}")).await?;
             for fan_name in &target_fans {
                 publish_fan_state(client, shared, fan_name).await;
             }
@@ -322,7 +325,7 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
         // Numeric preset buttons map directly onto the protocol's speed1..speed6.
         (Some("preset"), Some("set")) => {
             let Some(level) = parse_speed_level(payload) else {
-                return;
+                return Ok(());
             };
             {
                 let mut map = shared.fans.lock().unwrap();
@@ -335,7 +338,7 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
                     st.speed = level;
                 }
             }
-            transmit(shared.clone(), name.to_string(), format!("speed{level}")).await;
+            transmit(shared.clone(), name.to_string(), format!("speed{level}")).await?;
             for fan_name in &target_fans {
                 publish_fan_state(client, shared, fan_name).await;
             }
@@ -354,7 +357,7 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
                 }
             };
             if toggle {
-                transmit(shared.clone(), name.to_string(), "toggle_light".to_string()).await;
+                transmit(shared.clone(), name.to_string(), "toggle_light".to_string()).await?;
             }
             publish_light_state(client, shared, name).await;
         }
@@ -384,12 +387,13 @@ async fn handle_publish(client: &AsyncClient, shared: &Arc<Shared>, topic: &str,
                 }
             };
             if let Some(cmd) = cmd {
-                transmit(shared.clone(), name.to_string(), cmd).await;
+                transmit(shared.clone(), name.to_string(), cmd).await?;
             }
             publish_direction_state(client, shared, name).await;
         }
         _ => {}
     }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -437,7 +441,11 @@ pub async fn run(
                 Err(e) => eprintln!("[mqtt] setup failed: {e:#}"),
             },
             Ok(Event::Incoming(Packet::Publish(p))) => {
-                handle_publish(&client, &shared, &p.topic, &p.payload).await;
+                if let Err(e) = handle_publish(&client, &shared, &p.topic, &p.payload).await {
+                    // USB disconnects invalidate the live SoapySDR stream.
+                    // Exiting lets launchd reopen the device after it is replugged.
+                    return Err(e).context("HackRF transmit failed; exiting for service restart");
+                }
             }
             Ok(_) => {}
             Err(e) => {
