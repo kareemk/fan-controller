@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use num::complex::Complex32 as c32;
 use soapysdr::{Device, Direction};
+use std::io::{self, Write};
 
 const SAMPLE_RATE: f64 = 6_000_000.0;
 const FREQUENCY: f64 = 433_815_598.0;
@@ -171,6 +172,7 @@ impl OokDecoder {
 
         let device_id = code >> 12;
         println!("0x{code:08X}  device_id=0x{device_id:05X}");
+        let _ = io::stdout().flush();
     }
 }
 
