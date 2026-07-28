@@ -8,6 +8,7 @@ use rmcp::{
 };
 use serde::{Deserialize, Serialize};
 use soapysdr::{Device, Direction};
+use std::collections::HashMap;
 use std::f32::consts::TAU;
 use std::fs;
 use std::path::PathBuf;
@@ -93,6 +94,10 @@ struct ConfigFan {
     /// regardless. Defaults to false.
     #[serde(default)]
     light: bool,
+    /// Map a standard command name to a different button name for receivers
+    /// whose remote uses an alternate code (for example, off -> fan_off).
+    #[serde(default)]
+    command_overrides: HashMap<String, String>,
 }
 
 fn xor_nibbles(mut v: u32) -> u8 {
@@ -103,8 +108,6 @@ fn xor_nibbles(mut v: u32) -> u8 {
     }
     x
 }
-
-use std::collections::HashMap;
 
 #[derive(Deserialize)]
 struct Config {
@@ -119,6 +122,7 @@ struct Fan {
     key: u8,
     frequency: f64,
     buttons: &'static [(&'static str, u8)],
+    command_overrides: HashMap<String, u8>,
     rolling_in_check: bool,
     has_light: bool,
 }
@@ -140,12 +144,27 @@ fn load_config(path: &str) -> Result<LoadedConfig> {
             "vendor_b" => (BUTTONS_VENDOR_B, false, 0x0, FREQUENCY_VENDOR_B),
             other => bail!("Unknown vendor '{other}' for fan {}", cf.name),
         };
+        let mut command_overrides = HashMap::new();
+        for (command, button_name) in &cf.command_overrides {
+            let button = buttons
+                .iter()
+                .find(|(name, _)| *name == button_name)
+                .map(|(_, id)| *id)
+                .with_context(|| {
+                    format!(
+                        "Unknown override button '{button_name}' for fan {}",
+                        cf.name
+                    )
+                })?;
+            command_overrides.insert(command.clone(), button);
+        }
         fans.push(Fan {
             name: cf.name.clone(),
             device_id: cf.device_id,
             key: xor_nibbles(cf.device_id) ^ key_mask,
             frequency,
             buttons,
+            command_overrides,
             rolling_in_check,
             has_light: cf.light,
         });
@@ -157,6 +176,9 @@ fn load_config(path: &str) -> Result<LoadedConfig> {
 }
 
 fn find_button(fan: &Fan, name: &str) -> Result<u8> {
+    if let Some(button) = fan.command_overrides.get(name) {
+        return Ok(*button);
+    }
     fan.buttons
         .iter()
         .find(|(n, _)| *n == name)
@@ -639,6 +661,7 @@ mod tests {
             key: xor_nibbles(device_id),
             frequency: FREQUENCY_VENDOR_B,
             buttons: BUTTONS_VENDOR_B,
+            command_overrides: HashMap::new(),
             rolling_in_check: false,
             has_light: false,
         }
@@ -664,5 +687,14 @@ mod tests {
         );
         assert!(INTER_FAN_GAP > VA_FRAME_GAP);
         assert!(INTER_FAN_GAP > VB_FRAME_GAP);
+    }
+
+    #[test]
+    fn per_fan_command_override_takes_precedence() {
+        let mut fan = vendor_b_fan("fan", 0x12345);
+        fan.command_overrides.insert("off".to_string(), 0x08);
+
+        assert_eq!(find_button(&fan, "off").unwrap(), 0x08);
+        assert_eq!(find_button(&fan, "speed3").unwrap(), 0x0E);
     }
 }

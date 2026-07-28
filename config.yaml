@@ -6,7 +6,7 @@ fans:
   - { name: palapa2,    vendor: vendor_a, device_id: 0x861A6 }
   - { name: palapa3,    vendor: vendor_a, device_id: 0x86274 }
   - { name: galleria1,  vendor: vendor_b, device_id: 0xED13F }
-  - { name: galleria2,  vendor: vendor_a, device_id: 0x87AD7 }
+  - { name: galleria2,  vendor: vendor_a, device_id: 0x87AD7, command_overrides: { "off": fan_off } }
   - { name: galleria3,  vendor: vendor_a, device_id: 0x8643E }
   - { name: guest,      vendor: vendor_a, device_id: 0x87154 }
 
