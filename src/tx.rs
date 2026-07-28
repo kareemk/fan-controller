@@ -98,6 +98,10 @@ struct ConfigFan {
     /// whose remote uses an alternate code (for example, off -> fan_off).
     #[serde(default)]
     command_overrides: HashMap<String, String>,
+    /// Optional receiver-specific carrier frequency measured from its remote.
+    /// Defaults to the vendor's carrier frequency.
+    #[serde(default)]
+    frequency_hz: Option<f64>,
 }
 
 fn xor_nibbles(mut v: u32) -> u8 {
@@ -162,7 +166,7 @@ fn load_config(path: &str) -> Result<LoadedConfig> {
             name: cf.name.clone(),
             device_id: cf.device_id,
             key: xor_nibbles(cf.device_id) ^ key_mask,
-            frequency,
+            frequency: cf.frequency_hz.unwrap_or(frequency),
             buttons,
             command_overrides,
             rolling_in_check,
@@ -696,5 +700,19 @@ mod tests {
 
         assert_eq!(find_button(&fan, "off").unwrap(), 0x08);
         assert_eq!(find_button(&fan, "speed3").unwrap(), 0x0E);
+    }
+
+    #[test]
+    fn galleria2_uses_captured_remote_settings() {
+        let config = load_config("config.yaml").unwrap();
+        let fan = config
+            .fans
+            .iter()
+            .find(|fan| fan.name == "galleria2")
+            .unwrap();
+
+        assert_eq!(fan.device_id, 0x87AD7);
+        assert_eq!(fan.frequency, 433_904_500.0);
+        assert_eq!(find_button(fan, "off").unwrap(), 0x16);
     }
 }

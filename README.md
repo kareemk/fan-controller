@@ -160,7 +160,11 @@ fans:
   - { name: palapa1, vendor: vendor_a, device_id: 0x87552 }
   - { name: galleria1, vendor: vendor_b, device_id: 0xED13F, light: true }  # has a physical light
   # Map a standard command to an alternate receiver-specific button code.
-  - { name: galleria2, vendor: vendor_a, device_id: 0x87AD7, command_overrides: { "off": fan_off } }
+  - name: galleria2
+    vendor: vendor_a
+    device_id: 0x87AD7
+    frequency_hz: 433904500  # optional receiver-specific carrier
+    command_overrides: { "off": fan_off }
 
 rooms:
   main: "*"
