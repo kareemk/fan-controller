@@ -31,6 +31,7 @@ services:
       - "8123:8123"
     volumes:
       - ./ha-config:/config
+      - ./packages/fan_controller.yaml:/config/packages/fan_controller.yaml:ro
 
 volumes:
   mosquitto-data:

@@ -78,11 +78,26 @@ modes** feature to a Home Assistant tile card to show the protocol's discrete
 speed levels without relying on the percentage slider. The included
 [`homeassistant/fan-dashboard.yaml`](homeassistant/fan-dashboard.yaml) provides
 a mobile-friendly dashboard with explicit **Off, 1, 2, 3, 4, 5, 6** buttons for
-the Palapa group, Galleria group, and Guest fan. Group buttons publish one MQTT
-room command, so the bridge sends every room member in a single ordered RF
-transmission using the same timing as the CLI room command. Room transmissions
-include a 20 ms silent guard interval between receiver codes so each fan can
-finish decoding its frame before the next fan's signal begins.
+Palapa, Galleria, and the Guest fan. The Palapa and Galleria sections each have
+a target selector for **All, Fan 1, Fan 2, or Fan 3**. The target helpers and
+MQTT routing script are defined in
+[`homeassistant/packages/fan_controller.yaml`](homeassistant/packages/fan_controller.yaml).
+When **All** is selected, a button publishes one MQTT room command, so the
+bridge sends every room member in a single ordered RF transmission using the
+same timing as the CLI room command. Room transmissions include a 20 ms silent
+guard interval between receiver codes so each fan can finish decoding its frame
+before the next fan's signal begins.
+
+Enable the package from Home Assistant's runtime `configuration.yaml`:
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+Docker Compose mounts the tracked package into Home Assistant automatically.
+After enabling packages, validate/recreate Home Assistant and import
+`homeassistant/fan-dashboard.yaml` as the dashboard's raw configuration.
 
 ### Quick start (always-on Mac mini)
 

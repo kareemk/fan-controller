@@ -9,6 +9,10 @@ views:
           - type: heading
             heading: Palapa
             icon: mdi:fan
+          - type: entities
+            entities:
+              - entity: input_select.palapa_fan_target
+                name: Target
           - type: grid
             columns: 4
             square: false
@@ -18,70 +22,74 @@ views:
                 icon: mdi:fan-off
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/set
-                    payload: "OFF"
+                    room: palapa
+                    command: "off"
               - type: button
                 name: "1"
                 icon: mdi:numeric-1
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/preset/set
-                    payload: "1"
+                    room: palapa
+                    command: "1"
               - type: button
                 name: "2"
                 icon: mdi:numeric-2
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/preset/set
-                    payload: "2"
+                    room: palapa
+                    command: "2"
               - type: button
                 name: "3"
                 icon: mdi:numeric-3
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/preset/set
-                    payload: "3"
+                    room: palapa
+                    command: "3"
               - type: button
                 name: "4"
                 icon: mdi:numeric-4
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/preset/set
-                    payload: "4"
+                    room: palapa
+                    command: "4"
               - type: button
                 name: "5"
                 icon: mdi:numeric-5
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/preset/set
-                    payload: "5"
+                    room: palapa
+                    command: "5"
               - type: button
                 name: "6"
                 icon: mdi:numeric-6
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/palapa/preset/set
-                    payload: "6"
+                    room: palapa
+                    command: "6"
 
       - type: vertical-stack
         cards:
           - type: heading
             heading: Galleria
             icon: mdi:fan
+          - type: entities
+            entities:
+              - entity: input_select.galleria_fan_target
+                name: Target
           - type: grid
             columns: 4
             square: false
@@ -91,64 +99,64 @@ views:
                 icon: mdi:fan-off
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/set
-                    payload: "OFF"
+                    room: galleria
+                    command: "off"
               - type: button
                 name: "1"
                 icon: mdi:numeric-1
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/preset/set
-                    payload: "1"
+                    room: galleria
+                    command: "1"
               - type: button
                 name: "2"
                 icon: mdi:numeric-2
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/preset/set
-                    payload: "2"
+                    room: galleria
+                    command: "2"
               - type: button
                 name: "3"
                 icon: mdi:numeric-3
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/preset/set
-                    payload: "3"
+                    room: galleria
+                    command: "3"
               - type: button
                 name: "4"
                 icon: mdi:numeric-4
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/preset/set
-                    payload: "4"
+                    room: galleria
+                    command: "4"
               - type: button
                 name: "5"
                 icon: mdi:numeric-5
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/preset/set
-                    payload: "5"
+                    room: galleria
+                    command: "5"
               - type: button
                 name: "6"
                 icon: mdi:numeric-6
                 tap_action:
                   action: perform-action
-                  perform_action: mqtt.publish
+                  perform_action: script.fan_controller_send
                   data:
-                    topic: fanctrl/galleria/preset/set
-                    payload: "6"
+                    room: galleria
+                    command: "6"
 
       - type: vertical-stack
         cards:
